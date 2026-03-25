@@ -1,9 +1,25 @@
-export type PipelineContext<T> = {
-  rows: T[]
-}
+import type { PipelineContext, PipelineStep } from '../types.js'
 
-export type PipelineStep<T> = (context: PipelineContext<T>) => PipelineContext<T>
+export function runPipeline<T>(rows: T[], steps: PipelineStep<T>[]): PipelineContext<T> {
+  return steps.reduce<PipelineContext<T>>((context, step) => {
+    const startedAt = Date.now()
+    const result = step.run(context)
+    const finishedAt = Date.now()
 
-export function runPipeline<T>(rows: T[], steps: PipelineStep<T>[]) {
-  return steps.reduce((context, step) => step(context), { rows })
+    return {
+      rows: result.rows,
+      telemetry: [
+        ...context.telemetry,
+        {
+          name: step.name,
+          inputRows: context.rows.length,
+          outputRows: result.rows.length,
+          durationMs: finishedAt - startedAt,
+        },
+      ],
+    }
+  }, {
+    rows,
+    telemetry: [],
+  })
 }
